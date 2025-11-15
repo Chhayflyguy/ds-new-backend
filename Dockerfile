@@ -1,6 +1,6 @@
 # Use a common base image with Nginx and PHP 8.2-FPM
 # You can change 8.2 to 8.1 or 8.3 if your project needs it
-FROM richarvey/nginx-php-fpm:3.0.0-php8.2
+FROM richarvey/nginx-php-fpm:php8.2
 
 # ---- This is the most important step for MongoDB ----
 # Install the PECL extension for MongoDB
