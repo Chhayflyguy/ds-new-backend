@@ -2,8 +2,14 @@
 FROM richarvey/nginx-php-fpm:latest
 
 # ---- This is the most important step for MongoDB ----
-# Install the PECL extension for MongoDB
-RUN pecl install mongodb && docker-php-ext-enable mongodb
+# Install build dependencies (like autoconf), compile the extension, then remove the dependencies
+RUN apt-get update && apt-get install -y \
+        build-essential \
+        pkg-config \
+    && pecl install mongodb \
+    && apt-get purge -y --auto-remove build-essential pkg-config \
+    && rm -rf /var/lib/apt/lists/* \
+    && docker-php-ext-enable mongodb
 # ----------------------------------------------------
 
 # Set the working directory
