@@ -2,13 +2,15 @@
 FROM richarvey/nginx-php-fpm:latest
 
 # ---- This is the most important step for MongoDB ----
-# Install build dependencies for Alpine, compile the extension, then remove the dependencies
+# Install build dependencies, including autoconf, compile the extension, then remove them
 RUN apk update \
     && apk add --no-cache \
         build-base \
         pkgconfig \
+        autoconf \
+    && pecl channel-update pecl.php.net \
     && pecl install mongodb \
-    && apk del build-base pkgconfig \
+    && apk del build-base pkgconfig autoconf \
     && docker-php-ext-enable mongodb
 # ----------------------------------------------------
 
