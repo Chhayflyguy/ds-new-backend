@@ -1,14 +1,14 @@
-# Use the "latest" tag, which corresponds to PHP 8.2+
+# Use the "latest" tag (which is Alpine-based)
 FROM richarvey/nginx-php-fpm:latest
 
 # ---- This is the most important step for MongoDB ----
-# Install build dependencies (like autoconf), compile the extension, then remove the dependencies
-RUN apt-get update && apt-get install -y \
-        build-essential \
-        pkg-config \
+# Install build dependencies for Alpine, compile the extension, then remove the dependencies
+RUN apk update \
+    && apk add --no-cache \
+        build-base \
+        pkgconfig \
     && pecl install mongodb \
-    && apt-get purge -y --auto-remove build-essential pkg-config \
-    && rm -rf /var/lib/apt/lists/* \
+    && apk del build-base pkgconfig \
     && docker-php-ext-enable mongodb
 # ----------------------------------------------------
 
