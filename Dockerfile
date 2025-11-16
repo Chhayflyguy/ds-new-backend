@@ -29,8 +29,6 @@ RUN chown -R www-data:www-data /var/www/html/storage \
     && chown -R www-data:www-data /var/www/html/bootstrap/cache
 
 # Optimize Laravel for production
+# We cache config and views, but NOT routes
 RUN php artisan config:cache \
-    && php artisan route:cache \
     && php artisan view:cache
-
-RUN php artisan route:clear && /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
