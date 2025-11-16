@@ -2,15 +2,16 @@
 FROM richarvey/nginx-php-fpm:latest
 
 # ---- This is the most important step for MongoDB ----
-# Install build dependencies, including autoconf, compile the extension, then remove them
+# Install build dependencies, including autoconf AND openssl-dev, compile the extension, then remove them
 RUN apk update \
     && apk add --no-cache \
         build-base \
         pkgconfig \
         autoconf \
+        openssl-dev \
     && pecl channel-update pecl.php.net \
     && pecl install mongodb \
-    && apk del build-base pkgconfig autoconf \
+    && apk del build-base pkgconfig autoconf openssl-dev \
     && docker-php-ext-enable mongodb
 # ----------------------------------------------------
 
