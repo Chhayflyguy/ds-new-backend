@@ -32,3 +32,5 @@ RUN chown -R www-data:www-data /var/www/html/storage \
 RUN php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
+
+CMD php artisan route:clear && /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
