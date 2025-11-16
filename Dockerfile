@@ -80,11 +80,15 @@ RUN composer dump-autoload --optimize \
     && php artisan package:discover --ansi || true
 
 # Create storage directories if they don't exist and set proper permissions
-RUN mkdir -p /var/www/html/storage/framework/{sessions,views,cache} \
+# Order matters: set base permissions first, then override for writable directories
+RUN mkdir -p /var/www/html/storage/framework/sessions \
+    && mkdir -p /var/www/html/storage/framework/views \
+    && mkdir -p /var/www/html/storage/framework/cache/data \
     && mkdir -p /var/www/html/storage/logs \
     && mkdir -p /var/www/html/bootstrap/cache \
     && chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html \
+    && find /var/www/html -type f -exec chmod 644 {} \; \
+    && find /var/www/html -type d -exec chmod 755 {} \; \
     && chmod -R 775 /var/www/html/storage \
     && chmod -R 775 /var/www/html/bootstrap/cache \
     && chmod -R 777 /var/www/html/storage/logs
@@ -104,42 +108,51 @@ RUN echo '<VirtualHost *:8080>\n\
 RUN sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf
 
 # Create a startup script that handles PORT and runs migrations
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Get PORT from environment or use default 8080\n\
-PORT=${PORT:-8080}\n\
-\n\
-# Ensure storage directories exist and have correct permissions\n\
-# This must run as root (which it does by default in Docker)\n\
-mkdir -p /var/www/html/storage/framework/sessions\n\
-mkdir -p /var/www/html/storage/framework/views\n\
-mkdir -p /var/www/html/storage/framework/cache\n\
-mkdir -p /var/www/html/storage/logs\n\
-mkdir -p /var/www/html/bootstrap/cache\n\
-\n\
-# Fix permissions (important for runtime - must be done as root)\n\
-chown -R www-data:www-data /var/www/html/storage 2>/dev/null || true\n\
-chown -R www-data:www-data /var/www/html/bootstrap/cache 2>/dev/null || true\n\
-chmod -R 775 /var/www/html/storage 2>/dev/null || true\n\
-chmod -R 775 /var/www/html/bootstrap/cache 2>/dev/null || true\n\
-chmod -R 777 /var/www/html/storage/logs 2>/dev/null || true\n\
-\n\
-# Update Apache ports.conf to listen on the specified PORT\n\
-sed -i "s/Listen 8080/Listen $PORT/" /etc/apache2/ports.conf\n\
-sed -i "s/:8080/:$PORT/" /etc/apache2/sites-available/000-default.conf\n\
-\n\
-# Run migrations (with || true to not fail if migrations already ran)\n\
-php artisan migrate --force || true\n\
-\n\
-# Cache configuration and routes for production\n\
-php artisan config:cache || true\n\
-php artisan route:cache || true\n\
-php artisan view:cache || true\n\
-\n\
-# Start Apache (this will run as www-data)\n\
-exec apache2-foreground' > /usr/local/bin/start.sh \
-    && chmod +x /usr/local/bin/start.sh
+RUN cat > /usr/local/bin/start.sh << 'EOFSCRIPT'
+#!/bin/bash
+set -e
+
+# Get PORT from environment or use default 8080
+PORT=${PORT:-8080}
+
+# Ensure storage directories exist and have correct permissions
+# This must run as root (which it does by default in Docker)
+mkdir -p /var/www/html/storage/framework/sessions
+mkdir -p /var/www/html/storage/framework/views
+mkdir -p /var/www/html/storage/framework/cache/data
+mkdir -p /var/www/html/storage/logs
+mkdir -p /var/www/html/bootstrap/cache
+
+# Fix ownership first (must be root to do this)
+chown -R www-data:www-data /var/www/html/storage
+chown -R www-data:www-data /var/www/html/bootstrap/cache
+
+# Then fix permissions - storage needs to be writable
+chmod -R 775 /var/www/html/storage
+chmod -R 775 /var/www/html/bootstrap/cache
+chmod -R 777 /var/www/html/storage/logs
+
+# Ensure log file can be created if it does not exist
+touch /var/www/html/storage/logs/laravel.log
+chown www-data:www-data /var/www/html/storage/logs/laravel.log
+chmod 666 /var/www/html/storage/logs/laravel.log
+
+# Update Apache ports.conf to listen on the specified PORT
+sed -i "s/Listen 8080/Listen $PORT/" /etc/apache2/ports.conf
+sed -i "s/:8080/:$PORT/" /etc/apache2/sites-available/000-default.conf
+
+# Run migrations (with || true to not fail if migrations already ran)
+php artisan migrate --force || true
+
+# Cache configuration and routes for production
+php artisan config:cache || true
+php artisan route:cache || true
+php artisan view:cache || true
+
+# Start Apache (this will run as www-data)
+exec apache2-foreground
+EOFSCRIPT
+RUN chmod +x /usr/local/bin/start.sh
 
 # Expose port (Render will override with PORT env var)
 EXPOSE 8080
