@@ -33,4 +33,4 @@ RUN php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
 
-CMD php artisan route:clear && /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
+RUN php artisan route:clear && /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
