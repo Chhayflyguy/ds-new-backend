@@ -35,6 +35,11 @@ return [
             'driver' => 'mongodb',
             'dsn' => env('DB_URL'),
             'database' => env('DB_DATABASE'),
+            'options' => [
+                'ssl' => env('MONGODB_SSL', true),
+                'tls' => env('MONGODB_TLS', true),
+                'tlsAllowInvalidCertificates' => env('MONGODB_TLS_ALLOW_INVALID', false),
+            ],
         ],
 
         'sqlite' => [

@@ -32,13 +32,23 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     libzip-dev \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    libssl-dev \
+    pkg-config \
+    build-essential \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip opcache
 
-# Install MongoDB extension
+# Install MongoDB extension with SSL support (before cleaning apt)
 RUN pecl install mongodb \
     && docker-php-ext-enable mongodb \
     && echo "extension=mongodb.so" > /usr/local/etc/php/conf.d/mongodb.ini
+
+# Clean up build dependencies
+# Mark libssl-dev as manually installed to prevent autoremove from removing it
+RUN apt-mark manual libssl-dev \
+    && apt-get purge -y build-essential \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

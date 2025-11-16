@@ -22,11 +22,14 @@
     <body class="bg-white text-[#1b1b18] min-h-screen">
         <div class="fixed inset-0 flex items-center justify-center">
             <div class="flex flex-col items-center justify-center">
+                @php
+                    $fallbackLogo = asset('images/logo.svg');
+                @endphp
                 <img 
                     src="{{ asset('images/logo.png') }}" 
                     alt="{{ config('app.name', 'Logo') }}" 
                     class="w-auto h-auto max-w-[150px] max-h-[100px] object-contain mb-6"
-                    onerror="this.onerror=null; this.src='{{ asset('images/logo.svg') }}';"
+                    onerror="this.onerror=null; this.src='{{ $fallbackLogo }}';"
                 />
                 
                 @if (Route::has('login'))
