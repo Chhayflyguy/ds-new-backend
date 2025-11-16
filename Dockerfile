@@ -79,11 +79,15 @@ RUN composer install --no-interaction --no-dev --prefer-dist --optimize-autoload
 RUN composer dump-autoload --optimize \
     && php artisan package:discover --ansi || true
 
-# Set proper permissions
-RUN chown -R www-data:www-data /var/www/html \
+# Create storage directories if they don't exist and set proper permissions
+RUN mkdir -p /var/www/html/storage/framework/{sessions,views,cache} \
+    && mkdir -p /var/www/html/storage/logs \
+    && mkdir -p /var/www/html/bootstrap/cache \
+    && chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html \
     && chmod -R 775 /var/www/html/storage \
-    && chmod -R 775 /var/www/html/bootstrap/cache
+    && chmod -R 775 /var/www/html/bootstrap/cache \
+    && chmod -R 777 /var/www/html/storage/logs
 
 # Configure Apache to use public directory
 RUN echo '<VirtualHost *:8080>\n\
@@ -106,6 +110,21 @@ set -e\n\
 # Get PORT from environment or use default 8080\n\
 PORT=${PORT:-8080}\n\
 \n\
+# Ensure storage directories exist and have correct permissions\n\
+# This must run as root (which it does by default in Docker)\n\
+mkdir -p /var/www/html/storage/framework/sessions\n\
+mkdir -p /var/www/html/storage/framework/views\n\
+mkdir -p /var/www/html/storage/framework/cache\n\
+mkdir -p /var/www/html/storage/logs\n\
+mkdir -p /var/www/html/bootstrap/cache\n\
+\n\
+# Fix permissions (important for runtime - must be done as root)\n\
+chown -R www-data:www-data /var/www/html/storage 2>/dev/null || true\n\
+chown -R www-data:www-data /var/www/html/bootstrap/cache 2>/dev/null || true\n\
+chmod -R 775 /var/www/html/storage 2>/dev/null || true\n\
+chmod -R 775 /var/www/html/bootstrap/cache 2>/dev/null || true\n\
+chmod -R 777 /var/www/html/storage/logs 2>/dev/null || true\n\
+\n\
 # Update Apache ports.conf to listen on the specified PORT\n\
 sed -i "s/Listen 8080/Listen $PORT/" /etc/apache2/ports.conf\n\
 sed -i "s/:8080/:$PORT/" /etc/apache2/sites-available/000-default.conf\n\
@@ -118,7 +137,7 @@ php artisan config:cache || true\n\
 php artisan route:cache || true\n\
 php artisan view:cache || true\n\
 \n\
-# Start Apache\n\
+# Start Apache (this will run as www-data)\n\
 exec apache2-foreground' > /usr/local/bin/start.sh \
     && chmod +x /usr/local/bin/start.sh
 
