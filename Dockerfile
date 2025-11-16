@@ -37,7 +37,8 @@ RUN apt-get update && apt-get install -y \
 
 # Install MongoDB extension
 RUN pecl install mongodb \
-    && docker-php-ext-enable mongodb
+    && docker-php-ext-enable mongodb \
+    && echo "extension=mongodb.so" > /usr/local/etc/php/conf.d/mongodb.ini
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -68,7 +69,11 @@ COPY . .
 COPY --from=node-builder /app/public/build ./public/build
 
 # Install PHP dependencies (production only)
-RUN composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader --no-scripts
+# Try install first, if lock file is incompatible, update it then install
+RUN composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader --no-scripts 2>&1 || \
+    (echo "Lock file incompatible, updating..." && \
+     composer update --no-interaction --no-dev --prefer-dist --optimize-autoloader --no-scripts && \
+     composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader --no-scripts)
 
 # Run composer scripts (package discovery, etc.)
 RUN composer dump-autoload --optimize \
