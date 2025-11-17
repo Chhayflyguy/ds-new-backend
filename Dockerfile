@@ -154,6 +154,10 @@ sed -i "s/:8080/:$PORT/" /etc/apache2/sites-available/000-default.conf
 # Run migrations (with || true to not fail if migrations already ran)
 php artisan migrate --force || true
 
+# Create storage symbolic link for public file access
+# This links public/storage to storage/app/public so uploaded images are accessible
+php artisan storage:link || true
+
 # Cache configuration and routes for production
 php artisan config:cache || true
 php artisan route:cache || true
