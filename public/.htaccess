@@ -28,13 +28,16 @@
     RewriteRule ^ %1 [L,R=301]
 
     # Allow direct access to storage files - bypass Laravel routing
+    # Check if it's a storage request - if file exists (including symlinks), serve it directly
     RewriteCond %{REQUEST_URI} ^/storage/ [NC]
-    RewriteCond %{REQUEST_FILENAME} -f
-    RewriteRule ^ - [L]
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -l
+    RewriteRule ^storage/.*$ - [L]
     
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-l
     RewriteRule ^ index.php [L]
 </IfModule>
 

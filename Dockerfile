@@ -121,6 +121,14 @@ RUN echo '<VirtualHost *:8080>\n\
         Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"\n\
         Header set Access-Control-Allow-Headers "Content-Type, Authorization"\n\
     </Directory>\n\
+    <Directory /var/www/html/storage/app/public>\n\
+        AllowOverride All\n\
+        Require all granted\n\
+        Options FollowSymLinks Indexes\n\
+        Header set Access-Control-Allow-Origin "*"\n\
+        Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"\n\
+        Header set Access-Control-Allow-Headers "Content-Type, Authorization"\n\
+    </Directory>\n\
     ErrorLog ${APACHE_LOG_DIR}/error.log\n\
     CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
 </VirtualHost>' > /etc/apache2/sites-available/000-default.conf
@@ -172,10 +180,19 @@ php artisan migrate --force || true
 
 # Create storage symbolic link for public file access
 # This links public/storage to storage/app/public so uploaded images are accessible
-php artisan storage:link || true
+# Remove existing link if it's broken or incorrect
+if [ -L /var/www/html/public/storage ] && [ ! -e /var/www/html/public/storage ]; then
+    rm /var/www/html/public/storage
+fi
 
-# Fix permissions on the symbolic link and ensure it's accessible
+# Create the symlink if it doesn't exist
+if [ ! -L /var/www/html/public/storage ]; then
+    php artisan storage:link || ln -sf /var/www/html/storage/app/public /var/www/html/public/storage
+fi
+
+# Verify the symlink is correct
 if [ -L /var/www/html/public/storage ]; then
+    echo "Storage symlink created: $(readlink /var/www/html/public/storage)"
     chown -h www-data:www-data /var/www/html/public/storage
     chmod 755 /var/www/html/public/storage
     
@@ -197,8 +214,13 @@ if [ -L /var/www/html/public/storage ]; then
 </IfModule>
 
 # Allow direct file access - bypass Laravel routing
+# Files in storage should be served directly by Apache
 <IfModule mod_rewrite.c>
-    RewriteEngine Off
+    RewriteEngine On
+    # If file exists, serve it directly
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -l
+    RewriteRule ^ - [L]
 </IfModule>
 
 # Set proper MIME types for images
