@@ -95,13 +95,15 @@ RUN mkdir -p /var/www/html/storage/framework/sessions \
     && mkdir -p /var/www/html/storage/framework/views \
     && mkdir -p /var/www/html/storage/framework/cache/data \
     && mkdir -p /var/www/html/storage/logs \
+    && mkdir -p /var/www/html/storage/app/public/team-members \
     && mkdir -p /var/www/html/bootstrap/cache \
     && chown -R www-data:www-data /var/www/html \
     && find /var/www/html -type f -exec chmod 644 {} \; \
     && find /var/www/html -type d -exec chmod 755 {} \; \
     && chmod -R 775 /var/www/html/storage \
     && chmod -R 775 /var/www/html/bootstrap/cache \
-    && chmod -R 777 /var/www/html/storage/logs
+    && chmod -R 777 /var/www/html/storage/logs \
+    && chmod -R 755 /var/www/html/storage/app/public
 
 # Configure Apache to use public directory
 RUN echo '<VirtualHost *:8080>\n\
@@ -109,6 +111,7 @@ RUN echo '<VirtualHost *:8080>\n\
     <Directory /var/www/html/public>\n\
         AllowOverride All\n\
         Require all granted\n\
+        Options FollowSymLinks\n\
     </Directory>\n\
     ErrorLog ${APACHE_LOG_DIR}/error.log\n\
     CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
@@ -131,6 +134,7 @@ mkdir -p /var/www/html/storage/framework/sessions
 mkdir -p /var/www/html/storage/framework/views
 mkdir -p /var/www/html/storage/framework/cache/data
 mkdir -p /var/www/html/storage/logs
+mkdir -p /var/www/html/storage/app/public/team-members
 mkdir -p /var/www/html/bootstrap/cache
 
 # Fix ownership first (must be root to do this)
@@ -141,6 +145,7 @@ chown -R www-data:www-data /var/www/html/bootstrap/cache
 chmod -R 775 /var/www/html/storage
 chmod -R 775 /var/www/html/bootstrap/cache
 chmod -R 777 /var/www/html/storage/logs
+chmod -R 755 /var/www/html/storage/app/public
 
 # Ensure log file can be created if it does not exist
 touch /var/www/html/storage/logs/laravel.log
@@ -157,6 +162,18 @@ php artisan migrate --force || true
 # Create storage symbolic link for public file access
 # This links public/storage to storage/app/public so uploaded images are accessible
 php artisan storage:link || true
+
+# Fix permissions on the symbolic link and ensure it's accessible
+if [ -L /var/www/html/public/storage ]; then
+    chown -h www-data:www-data /var/www/html/public/storage
+    chmod 755 /var/www/html/public/storage
+fi
+
+# Ensure storage/app/public has correct permissions for web access
+chown -R www-data:www-data /var/www/html/storage/app/public
+chmod -R 755 /var/www/html/storage/app/public
+find /var/www/html/storage/app/public -type f -exec chmod 644 {} \;
+find /var/www/html/storage/app/public -type d -exec chmod 755 {} \;
 
 # Cache configuration and routes for production
 php artisan config:cache || true
