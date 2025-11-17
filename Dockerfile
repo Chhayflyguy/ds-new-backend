@@ -53,8 +53,8 @@ RUN apt-mark manual libssl-dev \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Enable Apache mod_rewrite
-RUN a2enmod rewrite
+# Enable Apache mod_rewrite and headers for CORS
+RUN a2enmod rewrite headers
 
 # Configure PHP for production
 RUN echo "memory_limit = 256M" > /usr/local/etc/php/conf.d/memory.ini \
@@ -113,6 +113,14 @@ RUN echo '<VirtualHost *:8080>\n\
         Require all granted\n\
         Options FollowSymLinks\n\
     </Directory>\n\
+    <Directory /var/www/html/public/storage>\n\
+        AllowOverride All\n\
+        Require all granted\n\
+        Options FollowSymLinks Indexes\n\
+        Header set Access-Control-Allow-Origin "*"\n\
+        Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"\n\
+        Header set Access-Control-Allow-Headers "Content-Type, Authorization"\n\
+    </Directory>\n\
     ErrorLog ${APACHE_LOG_DIR}/error.log\n\
     CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
 </VirtualHost>' > /etc/apache2/sites-available/000-default.conf
@@ -154,7 +162,10 @@ chmod 666 /var/www/html/storage/logs/laravel.log
 
 # Update Apache ports.conf to listen on the specified PORT
 sed -i "s/Listen 8080/Listen $PORT/" /etc/apache2/ports.conf
-sed -i "s/:8080/:$PORT/" /etc/apache2/sites-available/000-default.conf
+sed -i "s/:8080/:$PORT/g" /etc/apache2/sites-available/000-default.conf
+
+# Ensure Apache headers module is enabled
+a2enmod headers || true
 
 # Run migrations (with || true to not fail if migrations already ran)
 php artisan migrate --force || true
@@ -167,6 +178,41 @@ php artisan storage:link || true
 if [ -L /var/www/html/public/storage ]; then
     chown -h www-data:www-data /var/www/html/public/storage
     chmod 755 /var/www/html/public/storage
+    
+    # Ensure .htaccess exists in public/storage for CORS and public access
+    if [ ! -f /var/www/html/public/storage/.htaccess ]; then
+        cat > /var/www/html/public/storage/.htaccess << 'EOFHTACCESS'
+# Allow public access to storage files
+<IfModule mod_headers.c>
+    # Enable CORS for all origins (adjust as needed for production)
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS, HEAD"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+    Header set Access-Control-Expose-Headers "Content-Length, Content-Type"
+    
+    # Allow preflight requests
+    RewriteEngine On
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^(.*)$ $1 [R=200,L]
+</IfModule>
+
+# Allow direct file access - bypass Laravel routing
+<IfModule mod_rewrite.c>
+    RewriteEngine Off
+</IfModule>
+
+# Set proper MIME types for images
+<IfModule mod_mime.c>
+    AddType image/jpeg .jpg .jpeg
+    AddType image/png .png
+    AddType image/gif .gif
+    AddType image/webp .webp
+    AddType image/svg+xml .svg
+</IfModule>
+EOFHTACCESS
+    fi
+    chown www-data:www-data /var/www/html/public/storage/.htaccess
+    chmod 644 /var/www/html/public/storage/.htaccess
 fi
 
 # Ensure storage/app/public has correct permissions for web access
